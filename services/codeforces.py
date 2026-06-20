@@ -1,4 +1,5 @@
 import requests
+from datetime import datetime, timedelta
 
 def get_codeforces_stats(handle: str):
 
@@ -43,3 +44,50 @@ def get_codeforces_solved(handle: str):
             solved.add(problem_id)
 
     return len(solved)
+
+
+def get_codeforces_submission_history(handle: str):
+
+    url = (
+        f"https://codeforces.com/api/user.status"
+        f"?handle={handle}"
+    )
+
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        return None
+
+    data = response.json()
+
+    if data["status"] != "OK":
+        return None
+
+    submissions_by_date = {}
+
+    for submission in data["result"]:
+
+        timestamp = submission["creationTimeSeconds"]
+
+        date = datetime.fromtimestamp(
+            timestamp
+        ).strftime("%Y-%m-%d")
+
+        submissions_by_date[date] = (
+            submissions_by_date.get(date, 0) + 1
+        )
+
+    history = []
+
+    for date, count in submissions_by_date.items():
+
+        history.append({
+            "date": date,
+            "submissions": count
+        })
+
+    history.sort(
+        key=lambda x: x["date"]
+    )
+
+    return history

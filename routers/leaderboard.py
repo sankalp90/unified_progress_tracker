@@ -76,7 +76,10 @@ async def get_leaderboard(
         leaderboard.append({
             "user_id": user.id,
             "name": user.name,
-            "score": score
+            "score": score,
+            "solved": easy + medium + hard,
+            "achievements": achievement_count,
+            "codeforces_rating": codeforces_rating
         })
 
     # ======================

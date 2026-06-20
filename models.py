@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase,relationship
-from sqlalchemy import Column, Integer, String, Boolean,ForeignKey,DateTime,UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean,ForeignKey,DateTime,UniqueConstraint,Date
 
 
 class Base(DeclarativeBase):
@@ -11,6 +11,7 @@ class User(Base):
 
     id = Column(Integer,primary_key=True,index=True)
     name = Column(String,nullable=False)
+    username = Column(String,unique=True,nullable=False,index=True)
     email = Column(String,unique=True,nullable=False)
     
     profiles = relationship("PlatformProfile",back_populates="user")
@@ -18,6 +19,11 @@ class User(Base):
     achievements = relationship("Achievement",back_populates="user")
     github_stats = relationship("GithubStats",back_populates="user")
     platform_metrics = relationship("PlatformMetrics",back_populates="user")
+    leetcode_history = relationship("LeetCodeHistory",back_populates="user")
+    codeforces_history = relationship("CodeforcesHistory",back_populates="user")
+    github_history = relationship("GithubHistory",back_populates="user")
+    progress_history = relationship("ProgressHistory",back_populates="user")
+
 
 class PlatformProfile(Base):
     __tablename__ = "profiles"
@@ -58,6 +64,7 @@ class Achievement(Base):
     title = Column(String, nullable=False)
     description = Column(String)
     platform = Column(String, nullable=False)
+
     achievement_type = Column(String)
     badge_url = Column(String)
     external_id = Column(String)
@@ -94,3 +101,94 @@ class GithubStats(Base):
 
     user_id = Column(Integer,ForeignKey("users.id"))
     user = relationship("User", back_populates="github_stats")
+
+
+class LeetCodeHistory(Base):
+    __tablename__ = "leetcode_history"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "date",
+            name="uq_leetcode_user_date"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    date = Column(Date)
+
+    solved_count = Column(Integer)
+
+    user = relationship("User",back_populates="leetcode_history")
+
+class CodeforcesHistory(Base):
+    __tablename__ = "codeforces_history"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "date",
+            name="uq_codeforces_user_date"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    date = Column(Date)
+
+    solved_count = Column(Integer)
+
+    user = relationship("User",back_populates="codeforces_history")
+
+
+class GithubHistory(Base):
+    __tablename__ = "github_history"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "date",
+            name="uq_github_user_date"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    date = Column(Date)
+
+    contribution_count = Column(Integer)
+
+    user = relationship("User",back_populates="github_history")
+
+
+class ProgressHistory(Base):
+    __tablename__ = "progress_history"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "date",
+            name="uq_progresshistory_user_date"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    date = Column(Date, nullable=False)
+
+    leetcode_count = Column(Integer, default=0)
+
+    codeforces_count = Column(Integer, default=0)
+
+    github_count = Column(Integer, default=0)
+
+    total_activity = Column(Integer, default=0)
+
+    streak_active = Column(Boolean, default=False)
+
+    user = relationship("User",back_populates="progress_history")

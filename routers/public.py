@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import date,timedelta,datetime
+from datetime import date, timedelta
 
 from database import get_db
 from models import User, ProgressHistory
@@ -8,15 +8,17 @@ from models import User, ProgressHistory
 router = APIRouter()
 
 
-@router.get("/{user_id}")
-async def get_dashboard_by_id(
-    user_id: int,
+@router.get("/{username}")
+async def get_public_profile(
+    username: str,
     db: Session = Depends(get_db)
 ):
 
-    user = db.query(User).filter(
-        User.id == user_id
-    ).first()
+    user = (
+        db.query(User)
+        .filter(User.username == username)
+        .first()
+    )
 
     if not user:
         raise HTTPException(
@@ -105,6 +107,16 @@ async def get_dashboard_by_id(
 
     achievement_count = len(user.achievements)
 
+    achievements = [
+        {
+            "title": achievement.title,
+            "description": achievement.description,
+            "platform": achievement.platform,
+            "achieved_at": achievement.achieved_at
+        }
+        for achievement in user.achievements
+    ]
+
     # ======================
     # Progress History
     # ======================
@@ -112,7 +124,7 @@ async def get_dashboard_by_id(
     history_rows = (
         db.query(ProgressHistory)
         .filter(
-            ProgressHistory.user_id == user_id,
+            ProgressHistory.user_id == user.id,
             ProgressHistory.total_activity > 0
         )
         .order_by(ProgressHistory.date.asc())
@@ -176,21 +188,6 @@ async def get_dashboard_by_id(
         for row in history_rows
     ]
 
-    # ----------------------
-    # Recent Activity
-    # ----------------------
-
-    recent_activity = [
-        {
-            "date": str(row.date),
-            "leetcode": row.leetcode_count,
-            "codeforces": row.codeforces_count,
-            "github": row.github_count,
-            "total": row.total_activity
-        }
-        for row in history_rows[-30:]
-    ]
-
     # ======================
     # Unified Score
     # ======================
@@ -203,44 +200,15 @@ async def get_dashboard_by_id(
     )
 
     # ======================
-    # Daily / Weekly / Monthly Progress
+    # Public Response
     # ======================
 
-    today = date.today()
-
-    daily_progress = 0
-    weekly_progress = 0
-    monthly_progress = 0
-
-    for row in history_rows:
-
-        # Daily
-
-        if row.date == today:
-            daily_progress += row.total_activity
-
-        # Weekly (last 7 days including today)
-
-        if row.date >= today - timedelta(days=6):
-            weekly_progress += row.total_activity
-
-        # Monthly (current month)
-
-        if (
-            row.date.year == today.year and
-            row.date.month == today.month
-        ):
-            monthly_progress += row.total_activity
-
-        # ======================
-        # Response
-        # ======================
-
     return {
+        "profile_url": f"/public/{user.username}",
+
         "user": {
-            "id": user.id,
             "name": user.name,
-            "email": user.email
+            "username": user.username
         },
 
         "profiles": profiles,
@@ -259,6 +227,8 @@ async def get_dashboard_by_id(
 
         "achievement_count": achievement_count,
 
+        "achievements": achievements,
+
         "streaks": {
             "current_streak": current_streak,
             "longest_streak": longest_streak
@@ -266,12 +236,5 @@ async def get_dashboard_by_id(
 
         "heatmap": heatmap,
 
-        "recent_activity": recent_activity,
-
-        "score": score,
-        "progress": {
-            "daily": daily_progress,
-            "weekly": weekly_progress,
-            "monthly": monthly_progress
-        },
+        "score": score
     }

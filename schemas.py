@@ -5,11 +5,13 @@ from datetime import datetime
 class User(BaseModel):
     id: int
     name: str
+    username: str
     email: EmailStr
 
 class UserResponse(BaseModel):
     id: int
     name: str
+    username: str
     email: EmailStr
 
     model_config = {
@@ -18,10 +20,12 @@ class UserResponse(BaseModel):
 
 class UserCreate(BaseModel):
     name : str
+    username: str
     email : EmailStr
 
 class UserUpdate(BaseModel):
     name: str
+    username: str
     email: EmailStr
 
 class PlatformProfile(BaseModel):

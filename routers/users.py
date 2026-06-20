@@ -9,19 +9,59 @@ router = APIRouter()
 
 
 @router.post("/", response_model=UserResponse)
-def create_user(user: UserCreate,db: Session = Depends(get_db)):
+def create_user(
+    user: UserCreate,
+    db: Session = Depends(get_db)
+):
 
-    new_user = User(name=user.name,email=user.email)
+    existing = (
+        db.query(User)
+        .filter(User.username == user.username)
+        .first()
+    )
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Username already exists"
+        )
+
+    new_user = User(
+        name=user.name,
+        username=user.username,
+        email=user.email
+    )
 
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
     return new_user
 
 @router.get("/", response_model=list[UserResponse])
 def get_users(db: Session = Depends(get_db)):
     users = db.query(User).all()
     return users
+
+@router.get("/username/{username}", response_model=UserResponse)
+def get_user_by_username(
+    username: str,
+    db: Session = Depends(get_db)
+):
+
+    user = (
+        db.query(User)
+        .filter(User.username == username)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    return user
 
 
 @router.get("/{user_id}",response_model=UserResponse)
@@ -43,9 +83,11 @@ def update_user(
     db: Session = Depends(get_db)
 ):
 
-    user = db.query(User).filter(
-        User.id == user_id
-    ).first()
+    user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
 
     if not user:
         raise HTTPException(
@@ -53,7 +95,23 @@ def update_user(
             detail="User not found"
         )
 
+    existing = (
+        db.query(User)
+        .filter(
+            User.username == updated_user.username,
+            User.id != user_id
+        )
+        .first()
+    )
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Username already exists"
+        )
+
     user.name = updated_user.name
+    user.username = updated_user.username
     user.email = updated_user.email
 
     db.commit()

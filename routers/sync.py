@@ -2,12 +2,14 @@ from fastapi import APIRouter,HTTPException
 from sqlalchemy.orm import Session
 from fastapi import Depends
 from database import get_db
-from services.leetcode import get_leetcode_stats
-from models import User, CodingStats, PlatformMetrics,GithubStats,PlatformProfile
-from services.codeforces import get_codeforces_stats, get_codeforces_solved
-from services.github import get_github_stats
+from services.leetcode import get_leetcode_stats,get_leetcode_submission_history
+from models import User, CodingStats, PlatformMetrics,GithubStats,PlatformProfile,LeetCodeHistory,CodeforcesHistory,GithubHistory,ProgressHistory
+from services.codeforces import get_codeforces_stats, get_codeforces_solved,get_codeforces_submission_history
+from services.github import get_github_stats,get_github_contribution_history
 from schemas import GithubStatsResponse
-
+from datetime import datetime
+from services.progress_history import update_progress_history
+from services.achievement_engine import check_achievements
 
 router = APIRouter()
 
@@ -63,6 +65,90 @@ async def sync_leetcode(user_id: int,username: str,db: Session = Depends(get_db)
     return new_stats
 
 
+@router.get("/leetcode/history/{user_id}")
+async def get_leetcode_history(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+
+    profile = (
+        db.query(PlatformProfile)
+        .filter(
+            PlatformProfile.user_id == user_id,
+            PlatformProfile.platform == "leetcode"
+        )
+        .first()
+    )
+
+    if not profile:
+        raise HTTPException(
+            status_code=404,
+            detail="Leetcode profile not found"
+        )
+
+    history = get_leetcode_submission_history(
+        profile.username
+    )
+
+    if history is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Unable to fetch Leetcode history"
+        )
+
+    saved_rows = []
+
+    for item in history:
+
+        date_obj = datetime.strptime(
+            item["date"],
+            "%Y-%m-%d"
+        ).date()
+
+        row = (
+            db.query(LeetCodeHistory)
+            .filter(
+                LeetCodeHistory.user_id == user_id,
+                LeetCodeHistory.date == date_obj
+            )
+            .first()
+        )
+
+        if row:
+
+            row.solved_count = item["submissions"]
+
+        else:
+
+            row = LeetCodeHistory(
+                user_id=user_id,
+                date=date_obj,
+                solved_count=item["submissions"]
+            )
+
+            db.add(row)
+
+        update_progress_history(
+            db=db,
+            user_id=user_id,
+            date=date_obj,
+            platform="leetcode",
+            count=item["submissions"]
+        )
+
+        saved_rows.append({
+            "date": item["date"],
+            "submissions": item["submissions"]
+        })
+
+    db.commit()
+
+    return {
+        "user_id": user_id,
+        "username": profile.username,
+        "records_saved": len(saved_rows),
+        "history": saved_rows
+    }
 
 #codeforces
 
@@ -90,6 +176,31 @@ async def sync_codeforces(
             status_code=404,
             detail="Codeforces user not found"
         )
+    
+    existing_profile = db.query(
+        PlatformProfile
+    ).filter(
+        PlatformProfile.user_id == user_id,
+        PlatformProfile.platform == "codeforces"
+    ).first()
+
+    if existing_profile:
+
+        existing_profile.username = handle
+        existing_profile.verified = True
+
+    else:
+
+        new_profile = PlatformProfile(
+            platform="codeforces",
+            username=handle,
+            verified=True,
+            user_id=user_id
+        )
+
+        db.add(new_profile)
+
+    db.commit()
 
     solved_count = get_codeforces_solved(handle)
 
@@ -153,6 +264,87 @@ async def sync_codeforces(
 
         return new_stats
     
+    
+from models import (
+    PlatformProfile,
+    CodeforcesHistory
+)
+
+
+@router.get("/codeforces/history/{user_id}")
+async def get_codeforces_history(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+
+    profile = (
+        db.query(PlatformProfile)
+        .filter(
+            PlatformProfile.user_id == user_id,
+            PlatformProfile.platform == "codeforces"
+        )
+        .first()
+    )
+
+    if not profile:
+        raise HTTPException(
+            status_code=404,
+            detail="Codeforces profile not found"
+        )
+
+    history = get_codeforces_submission_history(
+        profile.username
+    )
+
+    if history is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Unable to fetch Codeforces history"
+        )
+
+    for item in history:
+
+        activity_date = datetime.strptime(
+            item["date"],
+            "%Y-%m-%d"
+        ).date()
+
+        row = (
+            db.query(CodeforcesHistory)
+            .filter(
+                CodeforcesHistory.user_id == user_id,
+                CodeforcesHistory.date == activity_date
+            )
+            .first()
+        )
+
+        if row:
+            row.solved_count = item["submissions"]
+
+        else:
+            row = CodeforcesHistory(
+                user_id=user_id,
+                date=activity_date,
+                solved_count=item["submissions"]
+            )
+            db.add(row)
+
+        update_progress_history(
+            db=db,
+            user_id=user_id,
+            date=activity_date,
+            platform="codeforces",
+            count=item["submissions"]
+        )
+
+    db.commit()
+
+    return {
+        "user_id": user_id,
+        "handle": profile.username,
+        "history": history
+    }
+
 
 #github
 @router.post("/github/{user_id}",response_model=GithubStatsResponse)
@@ -204,15 +396,102 @@ async def sync_github(user_id: int, username: str, db: Session = Depends(get_db)
 
     return new_stats
 
+from models import (
+    PlatformProfile,
+    GithubHistory
+)
+
+
+@router.get("/github/history/{user_id}")
+async def get_github_history(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+
+    profile = (
+        db.query(PlatformProfile)
+        .filter(
+            PlatformProfile.user_id == user_id,
+            PlatformProfile.platform == "github"
+        )
+        .first()
+    )
+
+    if not profile:
+        raise HTTPException(
+            status_code=404,
+            detail="Github profile not found"
+        )
+
+    history = get_github_contribution_history(
+        profile.username
+    )
+
+    if history is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Unable to fetch Github history"
+        )
+
+    for date_str, contribution_count in history.items():
+
+        date_obj = datetime.strptime(
+            date_str,
+            "%Y-%m-%d"
+        ).date()
+
+        row = (
+            db.query(GithubHistory)
+            .filter(
+                GithubHistory.user_id == user_id,
+                GithubHistory.date == date_obj
+            )
+            .first()
+        )
+
+        if row:
+            row.contribution_count = contribution_count
+
+        else:
+            row = GithubHistory(
+                user_id=user_id,
+                date=date_obj,
+                contribution_count=contribution_count
+            )
+            db.add(row)
+
+        update_progress_history(
+            db=db,
+            user_id=user_id,
+            date=date_obj,
+            platform="github",
+            count=contribution_count
+        )
+
+    db.commit()
+
+    return {
+        "user_id": user_id,
+        "username": profile.username,
+        "history": history
+    }
+
+
+
 
 
 #sync all
 @router.post("/all/{user_id}")
-async def sync_all(user_id: int, db: Session = Depends(get_db)):
+async def sync_all(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
 
-    user = db.query(User).filter(
-        User.id == user_id
-    ).first()
+    user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
 
     if not user:
         raise HTTPException(
@@ -220,11 +499,13 @@ async def sync_all(user_id: int, db: Session = Depends(get_db)):
             detail="User not found"
         )
 
-    profiles = db.query(
-        PlatformProfile
-    ).filter(
-        PlatformProfile.user_id == user_id
-    ).all()
+    profiles = (
+        db.query(PlatformProfile)
+        .filter(
+            PlatformProfile.user_id == user_id
+        )
+        .all()
+    )
 
     if not profiles:
         raise HTTPException(
@@ -233,26 +514,33 @@ async def sync_all(user_id: int, db: Session = Depends(get_db)):
         )
 
     synced = []
+    failed = []
 
     for profile in profiles:
 
         platform = profile.platform.lower()
         username = profile.username
 
-#leetcode
+        try:
 
-        if platform == "leetcode":
+            # leetcode
+            if platform == "leetcode":
 
-            stats = get_leetcode_stats(username)
+                stats = get_leetcode_stats(username)
 
-            if stats:
+                if not stats:
+                    raise Exception(
+                        "Unable to fetch LeetCode stats"
+                    )
 
-                existing = db.query(
-                    CodingStats
-                ).filter(
-                    CodingStats.user_id == user_id,
-                    CodingStats.platform == "leetcode"
-                ).first()
+                existing = (
+                    db.query(CodingStats)
+                    .filter(
+                        CodingStats.user_id == user_id,
+                        CodingStats.platform == "leetcode"
+                    )
+                    .first()
+                )
 
                 if existing:
 
@@ -274,24 +562,33 @@ async def sync_all(user_id: int, db: Session = Depends(get_db)):
                         )
                     )
 
+                db.commit()
                 synced.append("leetcode")
 
-#codeforces
+            # codeforces
+            elif platform == "codeforces":
 
-        elif platform == "codeforces":
+                cf_stats = get_codeforces_stats(
+                    username
+                )
 
-            cf_stats = get_codeforces_stats(username)
+                if not cf_stats:
+                    raise Exception(
+                        "Unable to fetch Codeforces stats"
+                    )
 
-            if cf_stats:
+                solved_count = get_codeforces_solved(
+                    username
+                )
 
-                solved_count = get_codeforces_solved(username)
-
-                existing_stats = db.query(
-                    CodingStats
-                ).filter(
-                    CodingStats.user_id == user_id,
-                    CodingStats.platform == "codeforces"
-                ).first()
+                existing_stats = (
+                    db.query(CodingStats)
+                    .filter(
+                        CodingStats.user_id == user_id,
+                        CodingStats.platform == "codeforces"
+                    )
+                    .first()
+                )
 
                 if existing_stats:
 
@@ -307,12 +604,14 @@ async def sync_all(user_id: int, db: Session = Depends(get_db)):
                         )
                     )
 
-                existing_metrics = db.query(
-                    PlatformMetrics
-                ).filter(
-                    PlatformMetrics.user_id == user_id,
-                    PlatformMetrics.platform == "codeforces"
-                ).first()
+                existing_metrics = (
+                    db.query(PlatformMetrics)
+                    .filter(
+                        PlatformMetrics.user_id == user_id,
+                        PlatformMetrics.platform == "codeforces"
+                    )
+                    .first()
+                )
 
                 if existing_metrics:
 
@@ -334,20 +633,28 @@ async def sync_all(user_id: int, db: Session = Depends(get_db)):
                         )
                     )
 
+                db.commit()
                 synced.append("codeforces")
 
-#github
-        elif platform == "github":
+            # github
+            elif platform == "github":
 
-            gh_stats = get_github_stats(username)
+                gh_stats = get_github_stats(
+                    username
+                )
 
-            if gh_stats:
+                if not gh_stats:
+                    raise Exception(
+                        "Unable to fetch Github stats"
+                    )
 
-                existing = db.query(
-                    GithubStats
-                ).filter(
-                    GithubStats.user_id == user_id
-                ).first()
+                existing = (
+                    db.query(GithubStats)
+                    .filter(
+                        GithubStats.user_id == user_id
+                    )
+                    .first()
+                )
 
                 if existing:
 
@@ -369,11 +676,227 @@ async def sync_all(user_id: int, db: Session = Depends(get_db)):
                         )
                     )
 
+                db.commit()
                 synced.append("github")
 
-    db.commit()
+        except Exception as e:
+
+            db.rollback()
+
+            failed.append({
+                "platform": platform,
+                "error": str(e)
+            })
 
     return {
         "message": "Sync completed",
-        "platforms_synced": synced
+        "platforms_synced": synced,
+        "failed": failed
+    }
+
+
+@router.post("/history/{user_id}")
+async def sync_all_history(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+
+    profiles = (
+        db.query(PlatformProfile)
+        .filter(
+            PlatformProfile.user_id == user_id
+        )
+        .all()
+    )
+
+    if not profiles:
+        raise HTTPException(
+            status_code=404,
+            detail="No platform profiles found"
+        )
+
+    synced = []
+    failed = []
+
+    for profile in profiles:
+
+        platform = profile.platform.lower()
+
+        try:
+
+            # leetcode
+            if platform == "leetcode":
+
+                history = (
+                    get_leetcode_submission_history(
+                        profile.username
+                    )
+                )
+
+                if not history:
+                    raise Exception(
+                        "Unable to fetch LeetCode history"
+                    )
+
+                for item in history:
+
+                    sync_date = datetime.strptime(
+                        item["date"],
+                        "%Y-%m-%d"
+                    ).date()
+
+                    row = (
+                        db.query(LeetCodeHistory)
+                        .filter(
+                            LeetCodeHistory.user_id == user_id,
+                            LeetCodeHistory.date == sync_date
+                        )
+                        .first()
+                    )
+
+                    if row:
+                        row.solved_count = item["submissions"]
+
+                    else:
+                        db.add(
+                            LeetCodeHistory(
+                                user_id=user_id,
+                                date=sync_date,
+                                solved_count=item["submissions"]
+                            )
+                        )
+
+                    update_progress_history(
+                        db=db,
+                        user_id=user_id,
+                        date=sync_date,
+                        platform="leetcode",
+                        count=item["submissions"]
+                    )
+
+                db.commit()
+                synced.append("leetcode")
+
+            # codeforces
+            elif platform == "codeforces":
+
+                history = (
+                    get_codeforces_submission_history(
+                        profile.username
+                    )
+                )
+
+                if not history:
+                    raise Exception(
+                        "Unable to fetch Codeforces history"
+                    )
+
+                for item in history:
+
+                    sync_date = datetime.strptime(
+                        item["date"],
+                        "%Y-%m-%d"
+                    ).date()
+
+                    row = (
+                        db.query(CodeforcesHistory)
+                        .filter(
+                            CodeforcesHistory.user_id == user_id,
+                            CodeforcesHistory.date == sync_date
+                        )
+                        .first()
+                    )
+
+                    if row:
+                        row.solved_count = item["submissions"]
+
+                    else:
+                        db.add(
+                            CodeforcesHistory(
+                                user_id=user_id,
+                                date=sync_date,
+                                solved_count=item["submissions"]
+                            )
+                        )
+
+                    update_progress_history(
+                        db=db,
+                        user_id=user_id,
+                        date=sync_date,
+                        platform="codeforces",
+                        count=item["submissions"]
+                    )
+
+                db.commit()
+                synced.append("codeforces")
+
+            # github
+            elif platform == "github":
+
+                history = (
+                    get_github_contribution_history(
+                        profile.username
+                    )
+                )
+
+                if not history:
+                    raise Exception(
+                        "Unable to fetch Github history"
+                    )
+
+                for date_str, contribution_count in history.items():
+
+                    sync_date = datetime.strptime(
+                        date_str,
+                        "%Y-%m-%d"
+                    ).date()
+
+                    row = (
+                        db.query(GithubHistory)
+                        .filter(
+                            GithubHistory.user_id == user_id,
+                            GithubHistory.date == sync_date
+                        )
+                        .first()
+                    )
+
+                    if row:
+                        row.contribution_count = contribution_count
+
+                    else:
+                        db.add(
+                            GithubHistory(
+                                user_id=user_id,
+                                date=sync_date,
+                                contribution_count=contribution_count
+                            )
+                        )
+
+                    update_progress_history(
+                        db=db,
+                        user_id=user_id,
+                        date=sync_date,
+                        platform="github",
+                        count=contribution_count
+                    )
+
+                db.commit()
+                synced.append("github")
+
+        except Exception as e:
+
+            db.rollback()
+
+            failed.append({
+                "platform": platform,
+                "error": str(e)
+            })
+
+    check_achievements(db,user_id)
+    db.commit()
+    
+    return {
+        "message": "History sync completed",
+        "platforms_synced": synced,
+        "failed": failed
     }

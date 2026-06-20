@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from models import Base
 from database import engine
 from routers import achievements, users,profiles,stats,dashboard
-from routers import sync,leaderboard
+from routers import sync,leaderboard,public
 
 
 Base.metadata.create_all(bind=engine)
@@ -48,6 +48,12 @@ app.include_router(
     achievements.router,
     prefix="/achievements",
     tags=["achievements"]
+)
+
+app.include_router(
+    public.router,
+    prefix="/public",
+    tags=["public"]
 )
 
 @app.get("/")
