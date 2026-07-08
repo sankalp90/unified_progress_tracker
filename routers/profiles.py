@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User,PlatformProfile
-from schemas import PlatformProfileCreate, PlatformProfileResponse, PlatformProfileUpdate
+from schemas import PlatformProfileCreate, PlatformProfileResponse, PlatformProfileUpdate, MessageResponse
 
 router = APIRouter()
 
@@ -80,7 +80,7 @@ async def get_profiles_by_platform(platform: str, db: Session = Depends(get_db))
 
     return profiles
 
-@router.delete("/{profile_id}")
+@router.delete("/{profile_id}", response_model=MessageResponse)
 async def delete_profile(profile_id:int,db:Session=Depends(get_db)):
     profile = db.query(PlatformProfile).filter(
         PlatformProfile.id == profile_id

@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
+from schemas import LeaderboardResponse
 
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/", response_model=LeaderboardResponse)
 async def get_leaderboard(
     db: Session = Depends(get_db)
 ):

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import CodingStats
-from schemas import CodingStatsCreate,CodingStatsResponse,CodingStatsUpdate
+from schemas import CodingStatsCreate,CodingStatsResponse,CodingStatsUpdate,MessageResponse
 
 router = APIRouter()
 
@@ -65,7 +65,7 @@ async def Update_Stats(stats_id:int,updated_stats : CodingStatsUpdate, db:Sessio
 
     return stats
 
-@router.delete("/stats_id")
+@router.delete("/stats_id", response_model=MessageResponse)
 async def delete_stats(stats_id:int,db:Session=Depends(get_db)):
     stat = db.query(CodingStats).filter(
         CodingStats.id == stats_id

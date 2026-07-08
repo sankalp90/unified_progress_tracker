@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from schemas import UserCreate, UserResponse, UserUpdate,PlatformProfileResponse,CodingStatsResponse,PlatformSummary,AchievementResponse
+from schemas import UserCreate, UserResponse, UserUpdate,PlatformProfileResponse,CodingStatsResponse,PlatformSummary,AchievementResponse,MessageResponse
 
 router = APIRouter()
 
@@ -119,7 +119,7 @@ def update_user(
 
     return user
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", response_model=MessageResponse)
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db)

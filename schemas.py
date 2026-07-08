@@ -143,6 +143,45 @@ class GithubStatsResponse(BaseModel):
     }
 
 
+class MessageResponse(BaseModel):
+    message: str
+
+
+class HistoryEntry(BaseModel):
+    date: str
+    submissions: int
+
+
+class LeetCodeHistoryResponse(BaseModel):
+    user_id: int
+    username: str
+    records_saved: int
+    history: list[HistoryEntry]
+
+
+class CodeforcesHistoryResponse(BaseModel):
+    user_id: int
+    handle: str
+    history: list[HistoryEntry]
+
+
+class GithubHistoryResponse(BaseModel):
+    user_id: int
+    username: str
+    history: dict[str, int]
+
+
+class SyncFailedEntry(BaseModel):
+    platform: str
+    error: str
+
+
+class SyncResponse(BaseModel):
+    message: str
+    platforms_synced: list[str]
+    failed: list[SyncFailedEntry]
+
+
 class DashboardUser(BaseModel):
     id: int
     name: str
@@ -160,9 +199,11 @@ class DashboardCodingStats(BaseModel):
     easy: int
     medium: int
     hard: int
+    lcs: int
 
 
 class DashboardGithub(BaseModel):
+    username: str
     repos: int
     followers: int
     following: int
@@ -175,21 +216,79 @@ class DashboardCodeforces(BaseModel):
     max_rank: str | None = None
 
 
+class DashboardStreaks(BaseModel):
+    current_streak: int
+    longest_streak: int
+
+
+class HeatmapEntry(BaseModel):
+    date: str
+    count: int
+
+
+class RecentActivityEntry(BaseModel):
+    date: str
+    leetcode: int
+    codeforces: int
+    github: int
+    total: int
+
+
+class ProgressStats(BaseModel):
+    daily: int
+    weekly: int
+    monthly: int
+
+
 class DashboardResponse(BaseModel):
     user: DashboardUser
-
     profiles: list[DashboardProfile]
-
     coding_stats: DashboardCodingStats
-
     github: DashboardGithub | None = None
-
     codeforces: DashboardCodeforces | None = None
-
     achievement_count: int
-
+    streaks: DashboardStreaks
+    heatmap: list[HeatmapEntry]
+    recent_activity: list[RecentActivityEntry]
     score: int
+    progress: ProgressStats
 
-    model_config = {
-        "from_attributes": True
-    }
+
+class LeaderboardEntry(BaseModel):
+    user_id: int
+    name: str
+    score: int
+    solved: int
+    achievements: int
+    codeforces_rating: int
+    rank: int
+
+
+class LeaderboardResponse(BaseModel):
+    leaderboard: list[LeaderboardEntry]
+
+
+class PublicUser(BaseModel):
+    name: str
+    username: str
+
+
+class PublicAchievement(BaseModel):
+    title: str
+    description: str
+    platform: str
+    achieved_at: datetime
+
+
+class PublicProfileResponse(BaseModel):
+    profile_url: str
+    user: PublicUser
+    profiles: list[DashboardProfile]
+    coding_stats: DashboardCodingStats
+    github: DashboardGithub | None = None
+    codeforces: DashboardCodeforces | None = None
+    achievement_count: int
+    achievements: list[PublicAchievement]
+    streaks: DashboardStreaks
+    heatmap: list[HeatmapEntry]
+    score: int

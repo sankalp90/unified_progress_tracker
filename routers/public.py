@@ -4,11 +4,12 @@ from datetime import date, timedelta
 
 from database import get_db
 from models import User, ProgressHistory
+from schemas import PublicProfileResponse
 
 router = APIRouter()
 
 
-@router.get("/{username}")
+@router.get("/{username}", response_model=PublicProfileResponse)
 async def get_public_profile(
     username: str,
     db: Session = Depends(get_db)

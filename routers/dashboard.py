@@ -4,11 +4,12 @@ from datetime import date,timedelta,datetime
 
 from database import get_db
 from models import User, ProgressHistory
+from schemas import DashboardResponse
 
 router = APIRouter()
 
 
-@router.get("/{user_id}")
+@router.get("/{user_id}", response_model=DashboardResponse)
 async def get_dashboard_by_id(
     user_id: int,
     db: Session = Depends(get_db)

@@ -6,7 +6,14 @@ from services.leetcode import get_leetcode_stats,get_leetcode_submission_history
 from models import User, CodingStats, PlatformMetrics,GithubStats,PlatformProfile,LeetCodeHistory,CodeforcesHistory,GithubHistory,ProgressHistory
 from services.codeforces import get_codeforces_stats, get_codeforces_solved,get_codeforces_submission_history
 from services.github import get_github_stats,get_github_contribution_history
-from schemas import GithubStatsResponse
+from schemas import (
+    GithubStatsResponse,
+    CodingStatsResponse,
+    LeetCodeHistoryResponse,
+    CodeforcesHistoryResponse,
+    GithubHistoryResponse,
+    SyncResponse,
+)
 from datetime import datetime
 from services.progress_history import update_progress_history
 from services.achievement_engine import check_achievements
@@ -14,7 +21,7 @@ from services.achievement_engine import check_achievements
 router = APIRouter()
 
 
-@router.post("/leetcode/{user_id}")
+@router.post("/leetcode/{user_id}", response_model=CodingStatsResponse)
 async def sync_leetcode(user_id: int,username: str,db: Session = Depends(get_db)):
 
     user = db.query(User).filter(User.id == user_id).first()
@@ -65,7 +72,7 @@ async def sync_leetcode(user_id: int,username: str,db: Session = Depends(get_db)
     return new_stats
 
 
-@router.get("/leetcode/history/{user_id}")
+@router.get("/leetcode/history/{user_id}", response_model=LeetCodeHistoryResponse)
 async def get_leetcode_history(
     user_id: int,
     db: Session = Depends(get_db)
@@ -152,7 +159,7 @@ async def get_leetcode_history(
 
 #codeforces
 
-@router.post("/codeforces/{user_id}")
+@router.post("/codeforces/{user_id}", response_model=CodingStatsResponse)
 async def sync_codeforces(
     user_id: int,
     handle: str,
@@ -271,7 +278,7 @@ from models import (
 )
 
 
-@router.get("/codeforces/history/{user_id}")
+@router.get("/codeforces/history/{user_id}", response_model=CodeforcesHistoryResponse)
 async def get_codeforces_history(
     user_id: int,
     db: Session = Depends(get_db)
@@ -402,7 +409,7 @@ from models import (
 )
 
 
-@router.get("/github/history/{user_id}")
+@router.get("/github/history/{user_id}", response_model=GithubHistoryResponse)
 async def get_github_history(
     user_id: int,
     db: Session = Depends(get_db)
@@ -481,7 +488,7 @@ async def get_github_history(
 
 
 #sync all
-@router.post("/all/{user_id}")
+@router.post("/all/{user_id}", response_model=SyncResponse)
 async def sync_all(
     user_id: int,
     db: Session = Depends(get_db)
@@ -695,7 +702,7 @@ async def sync_all(
     }
 
 
-@router.post("/history/{user_id}")
+@router.post("/history/{user_id}", response_model=SyncResponse)
 async def sync_all_history(
     user_id: int,
     db: Session = Depends(get_db)

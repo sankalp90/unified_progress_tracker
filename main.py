@@ -3,6 +3,7 @@ from models import Base
 from database import engine
 from routers import achievements, users,profiles,stats,dashboard
 from routers import sync,leaderboard,public
+from schemas import MessageResponse
 
 
 Base.metadata.create_all(bind=engine)
@@ -56,7 +57,7 @@ app.include_router(
     tags=["public"]
 )
 
-@app.get("/")
+@app.get("/", response_model=MessageResponse)
 def root():
     return {
         "message": "Unified Progress Tracker"
