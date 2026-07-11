@@ -2,7 +2,15 @@ import requests
 import json
 from datetime import datetime
 
+from redis_cache import get_json, set_json
+
+
 def get_leetcode_stats(username: str):
+
+    cache_key = f"leetcode:stats:{username}"
+    cached = get_json(cache_key)
+    if cached is not None:
+        return cached
 
     url = "https://leetcode.com/graphql"
 
@@ -62,7 +70,7 @@ def get_leetcode_stats(username: str):
         elif item["difficulty"] == "Hard":
             hard = item["count"]
 
-    return {
+    result = {
         "platform": "leetcode",
         "solved": total,
         "easy": easy,
@@ -70,9 +78,17 @@ def get_leetcode_stats(username: str):
         "hard": hard
     }
 
+    set_json(cache_key, result, ttl_seconds=300)
+    return result
+
 
 
 def get_leetcode_submission_history(username: str):
+
+    cache_key = f"leetcode:history:{username}"
+    cached = get_json(cache_key)
+    if cached is not None:
+        return cached
 
     url = "https://leetcode.com/graphql"
 
@@ -126,4 +142,5 @@ def get_leetcode_submission_history(username: str):
         key=lambda x: x["date"]
     )
 
+    set_json(cache_key, history, ttl_seconds=900)
     return history

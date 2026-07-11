@@ -2,11 +2,19 @@ import requests
 from dotenv import load_dotenv
 import os
 
+from redis_cache import get_json, set_json
+
+
 load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 def get_github_stats(username: str):
+
+    cache_key = f"github:stats:{username}"
+    cached = get_json(cache_key)
+    if cached is not None:
+        return cached
 
     url = f"https://api.github.com/users/{username}"
 
@@ -17,7 +25,7 @@ def get_github_stats(username: str):
 
     data = response.json()
 
-    return {
+    result = {
         "platform": "github",
         "public_repos": data["public_repos"],
         "followers": data["followers"],
@@ -25,10 +33,18 @@ def get_github_stats(username: str):
         "created_at": data["created_at"]
     }
 
+    set_json(cache_key, result, ttl_seconds=300)
+    return result
+
 import requests
 
 
 def get_github_contribution_history(username: str):
+
+    cache_key = f"github:contrib_history:{username}"
+    cached = get_json(cache_key)
+    if cached is not None:
+        return cached
 
     query = """
     query($login: String!) {
@@ -88,4 +104,5 @@ def get_github_contribution_history(username: str):
                 day["contributionCount"]
             )
 
+    set_json(cache_key, history, ttl_seconds=900)
     return history

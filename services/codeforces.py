@@ -1,7 +1,15 @@
 import requests
 from datetime import datetime, timedelta
 
+from redis_cache import get_json, set_json
+
+
 def get_codeforces_stats(handle: str):
+
+    cache_key = f"codeforces:stats:{handle}"
+    cached = get_json(cache_key)
+    if cached is not None:
+        return cached
 
     url = f"https://codeforces.com/api/user.info?handles={handle}"
 
@@ -17,7 +25,7 @@ def get_codeforces_stats(handle: str):
 
     user = data["result"][0]
 
-    return {
+    result = {
         "platform": "codeforces",
         "rating": user.get("rating", 0),
         "max_rating": user.get("maxRating", 0),
@@ -25,7 +33,15 @@ def get_codeforces_stats(handle: str):
         "max_rank": user.get("maxRank", "unrated")
     }
 
+    set_json(cache_key, result, ttl_seconds=300)
+    return result
+
 def get_codeforces_solved(handle: str):
+    cache_key = f"codeforces:solved:{handle}"
+    cached = get_json(cache_key)
+    if cached is not None:
+        return cached
+
     url = f"https://codeforces.com/api/user.status?handle={handle}"
 
     response = requests.get(url)
@@ -43,10 +59,17 @@ def get_codeforces_solved(handle: str):
             problem_id = (problem.get("contestId"), problem.get("index"))
             solved.add(problem_id)
 
-    return len(solved)
+    result = len(solved)
+    set_json(cache_key, result, ttl_seconds=300)
+    return result
 
 
 def get_codeforces_submission_history(handle: str):
+
+    cache_key = f"codeforces:history:{handle}"
+    cached = get_json(cache_key)
+    if cached is not None:
+        return cached
 
     url = (
         f"https://codeforces.com/api/user.status"
@@ -90,4 +113,5 @@ def get_codeforces_submission_history(handle: str):
         key=lambda x: x["date"]
     )
 
+    set_json(cache_key, history, ttl_seconds=900)
     return history
