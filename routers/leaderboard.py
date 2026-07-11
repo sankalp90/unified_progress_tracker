@@ -77,6 +77,7 @@ async def get_leaderboard(
         leaderboard.append({
             "user_id": user.id,
             "name": user.name,
+            "username": user.username,
             "score": score,
             "solved": easy + medium + hard,
             "achievements": achievement_count,

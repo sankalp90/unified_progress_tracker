@@ -22,6 +22,11 @@ class UserCreate(BaseModel):
     name : str
     username: str
     email : EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
 
 class UserUpdate(BaseModel):
     name: str
@@ -257,6 +262,7 @@ class DashboardResponse(BaseModel):
 class LeaderboardEntry(BaseModel):
     user_id: int
     name: str
+    username: str
     score: int
     solved: int
     achievements: int

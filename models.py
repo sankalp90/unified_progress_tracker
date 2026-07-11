@@ -13,6 +13,7 @@ class User(Base):
     name = Column(String,nullable=False)
     username = Column(String,unique=True,nullable=False,index=True)
     email = Column(String,unique=True,nullable=False)
+    password = Column(String,nullable=True)
     
     profiles = relationship("PlatformProfile",back_populates="user")
     stats = relationship("CodingStats", back_populates="user")

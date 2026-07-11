@@ -65,7 +65,7 @@ async def Update_Stats(stats_id:int,updated_stats : CodingStatsUpdate, db:Sessio
 
     return stats
 
-@router.delete("/stats_id", response_model=MessageResponse)
+@router.delete("/{stats_id}", response_model=MessageResponse)
 async def delete_stats(stats_id:int,db:Session=Depends(get_db)):
     stat = db.query(CodingStats).filter(
         CodingStats.id == stats_id

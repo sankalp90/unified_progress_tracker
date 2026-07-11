@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import hashlib
 
 from database import get_db
 from models import User
-from schemas import UserCreate, UserResponse, UserUpdate,PlatformProfileResponse,CodingStatsResponse,PlatformSummary,AchievementResponse,MessageResponse
+from schemas import UserCreate, UserLogin, UserResponse, UserUpdate,PlatformProfileResponse,CodingStatsResponse,PlatformSummary,AchievementResponse,MessageResponse
 
 router = APIRouter()
+
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 @router.post("/", response_model=UserResponse)
@@ -29,7 +34,8 @@ def create_user(
     new_user = User(
         name=user.name,
         username=user.username,
-        email=user.email
+        email=user.email,
+        password=hash_password(user.password)
     )
 
     db.add(new_user)
@@ -37,6 +43,27 @@ def create_user(
     db.refresh(new_user)
 
     return new_user
+
+
+@router.post("/login", response_model=UserResponse)
+def login_user(
+    credentials: UserLogin,
+    db: Session = Depends(get_db)
+):
+
+    user = (
+        db.query(User)
+        .filter(User.username == credentials.username)
+        .first()
+    )
+
+    if not user or user.password != hash_password(credentials.password):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password"
+        )
+
+    return user
 
 @router.get("/", response_model=list[UserResponse])
 def get_users(db: Session = Depends(get_db)):
@@ -194,4 +221,3 @@ async def total_solved_by_platform(user_id,db:Session=Depends(get_db)):
         })
 
     return result  
-

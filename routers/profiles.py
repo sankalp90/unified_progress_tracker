@@ -40,6 +40,15 @@ async def get_profiles(db: Session = Depends(get_db)):
 
     return profiles
 
+@router.get("/filter",response_model=list[PlatformProfileResponse])
+async def get_profiles_by_platform(platform: str, db: Session = Depends(get_db)):
+
+    profiles = db.query(PlatformProfile).filter(
+        PlatformProfile.platform == platform
+    ).all()
+
+    return profiles
+
 @router.get("/{profile_id}",response_model=PlatformProfileResponse)
 async def get_profiles_by_id(profile_id:int,db: Session = Depends(get_db)):
     profile = db.query(PlatformProfile).filter(
@@ -70,15 +79,6 @@ async def update_profiles(profile_id:int,updated_profile: PlatformProfileUpdate,
 
     return profile
 
-
-@router.get("/filter",response_model=list[PlatformProfileResponse])
-async def get_profiles_by_platform(platform: str, db: Session = Depends(get_db)):
-    
-    profiles = db.query(PlatformProfile).filter(
-        PlatformProfile.platform == platform
-    ).all()
-
-    return profiles
 
 @router.delete("/{profile_id}", response_model=MessageResponse)
 async def delete_profile(profile_id:int,db:Session=Depends(get_db)):
